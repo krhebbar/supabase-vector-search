@@ -1,0 +1,71 @@
+{
+  "name": "supabase-vector-search",
+  "version": "1.0.0",
+  "description": "Production-ready vector similarity search for Supabase with PostgreSQL and pgvector. Supports multi-vector weighted search for advanced semantic matching.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "supabase",
+    "examples",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "example:document-search": "npx ts-node examples/document-search.ts",
+    "example:resume-search": "npx ts-node examples/resume-search.ts"
+  },
+  "keywords": [
+    "supabase",
+    "vector-search",
+    "semantic-search",
+    "pgvector",
+    "postgresql",
+    "embeddings",
+    "openai",
+    "cohere",
+    "similarity-search",
+    "machine-learning",
+    "typescript",
+    "database",
+    "search-engine",
+    "resume-search",
+    "candidate-matching"
+  ],
+  "author": "Ravindra Kanchikare (krhebber)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krhebber/supabase-vector-search.git"
+  },
+  "homepage": "https://github.com/krhebber/supabase-vector-search#readme",
+  "bugs": {
+    "url": "https://github.com/krhebber/supabase-vector-search/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "openai": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "openai": "^4.24.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.2"
+  },
+  "dependencies": {}
+}
