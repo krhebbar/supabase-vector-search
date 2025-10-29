@@ -7,7 +7,7 @@ Single TypeScript library with database-first architecture:
 ```
 supabase-vector-search/
 ├── src/
-│   ├── client/          # Vector search client
+│   ├── document/        # Document CRUD operations
 │   ├── embeddings/      # Embedding provider integrations
 │   ├── search/          # Search algorithms and strategies
 │   └── types/           # TypeScript type definitions
@@ -135,16 +135,29 @@ WITH (m = 16, ef_construction = 64);
 - Tune `m` (connections per layer) and `ef_construction` parameters
 - Consider dimensionality reduction for very high-dimensional vectors
 
-**Multi-Vector Search:**
+**Multi-Vector Search (Flexible Implementation):**
+
+The current multi-vector search implementation uses a flexible JSONB column (`named_embeddings`) to store multiple named embeddings per document. This allows for a dynamic number of embeddings without requiring schema changes.
+
+**Database Schema:**
+- The `documents` table includes a `named_embeddings` JSONB column.
+- This column stores an object where keys are embedding names (e.g., "title", "content") and values are the vector embeddings.
+
+**Search Function:**
+- The `match_documents_weighted` function accepts a JSONB object containing query embeddings and their weights.
+- It dynamically calculates similarity by iterating over the `named_embeddings`.
+
+**Example Usage:**
 ```typescript
-// Search with weighted vectors (e.g., title=0.7, content=0.3)
-const results = await searchWithWeights({
-  vectors: [
-    { embedding: titleEmbedding, weight: 0.7 },
-    { embedding: contentEmbedding, weight: 0.3 }
-  ],
-  limit: 10
-})
+// Search with dynamically weighted named embeddings
+const results = await client.searchWeighted({
+  queries: {
+    title: { embedding: titleEmbedding, weight: 0.6 },
+    content: { embedding: contentEmbedding, weight: 0.4 }
+  },
+  matchThreshold: 0.7,
+  matchCount: 10
+});
 ```
 
 ## Environment Setup
