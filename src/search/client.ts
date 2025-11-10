@@ -19,7 +19,7 @@ import {
 } from '../types';
 import { DocumentManager } from '../document/manager';
 import { SearchManager } from './manager';
-import { generateDocumentEmbeddings } from '../embeddings';
+import { generateEmbedding } from '../embeddings';
 import { Logger, defaultLogger } from '../logger';
 
 export class VectorSearchClient {
@@ -38,7 +38,7 @@ export class VectorSearchClient {
   ) {
     this.client = createClient(config.url, config.key);
     this.embeddingProvider = embeddingProvider;
-    this.documentManager = new DocumentManager(this.client, config.tableName);
+    this.documentManager = new DocumentManager(this.client, config.tableName, logger);
     this.searchManager = new SearchManager(this.client, logger);
     this.expectedDimensions = expectedDimensions;
     this.logger = logger;
@@ -49,7 +49,7 @@ export class VectorSearchClient {
    */
   async insertDocument(document: Document): Promise<Document> {
     if (this.embeddingProvider && !document.embedding) {
-      document.embedding = await generateDocumentEmbeddings(document.content, this.embeddingProvider);
+      document.embedding = await generateEmbedding(document.content, this.embeddingProvider);
     }
     return this.documentManager.insert(document);
   }
@@ -63,11 +63,13 @@ export class VectorSearchClient {
     onProgress?: (completed: number, total: number) => void
   ): Promise<Document[]> {
     if (this.embeddingProvider) {
-      for (const doc of documents) {
+      // Generate embeddings in parallel for better performance
+      const embeddingPromises = documents.map(async (doc) => {
         if (!doc.embedding) {
-          doc.embedding = await generateDocumentEmbeddings(doc.content, this.embeddingProvider);
+          doc.embedding = await generateEmbedding(doc.content, this.embeddingProvider!);
         }
-      }
+      });
+      await Promise.all(embeddingPromises);
     }
     return this.documentManager.insertBatch(documents, batchSize, onProgress);
   }

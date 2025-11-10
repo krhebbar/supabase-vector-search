@@ -75,6 +75,21 @@ const documents = [
  * Main example function
  */
 async function main() {
+  // Validate required environment variables
+  const requiredEnvVars = {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_KEY: process.env.SUPABASE_KEY,
+  };
+
+  for (const [name, value] of Object.entries(requiredEnvVars)) {
+    if (!value) {
+      console.error(`❌ Missing required environment variable: ${name}`);
+      console.error(`   Please set ${name} in your .env file`);
+      process.exit(1);
+    }
+  }
+
   // Initialize embedding provider
   const provider = createOpenAIProvider({
     apiKey: process.env.OPENAI_API_KEY!,

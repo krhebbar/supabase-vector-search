@@ -60,93 +60,75 @@ AS $$
 BEGIN
   RETURN QUERY
   SELECT
-    documents.id,
-    documents.content,
-    documents.metadata,
-    -- Weighted similarity calculation
-    -- COALESCE handles NULL embeddings (returns 0 if embedding is NULL)
-    (
-      COALESCE(1 - (documents.embedding <=> query_embedding), 0) * weight_main +
-      COALESCE(
-        CASE
-          WHEN query_section_1 IS NOT NULL AND documents.embedding_section_1 IS NOT NULL
-          THEN (1 - (documents.embedding_section_1 <=> query_section_1)) * weight_section_1
-          ELSE 0
-        END,
-        0
-      ) +
-      COALESCE(
-        CASE
-          WHEN query_section_2 IS NOT NULL AND documents.embedding_section_2 IS NOT NULL
-          THEN (1 - (documents.embedding_section_2 <=> query_section_2)) * weight_section_2
-          ELSE 0
-        END,
-        0
-      ) +
-      COALESCE(
-        CASE
-          WHEN query_section_3 IS NOT NULL AND documents.embedding_section_3 IS NOT NULL
-          THEN (1 - (documents.embedding_section_3 <=> query_section_3)) * weight_section_3
-          ELSE 0
-        END,
-        0
+    ranked.id,
+    ranked.content,
+    ranked.metadata,
+    ranked.similarity,
+    ranked.similarity_main,
+    ranked.similarity_section_1,
+    ranked.similarity_section_2,
+    ranked.similarity_section_3
+  FROM (
+    SELECT
+      documents.id,
+      documents.content,
+      documents.metadata,
+      -- Weighted similarity calculation
+      -- COALESCE handles NULL embeddings (returns 0 if embedding is NULL)
+      (
+        COALESCE(1 - (documents.embedding <=> query_embedding), 0) * weight_main +
+        COALESCE(
+          CASE
+            WHEN query_section_1 IS NOT NULL AND documents.embedding_section_1 IS NOT NULL
+            THEN (1 - (documents.embedding_section_1 <=> query_section_1)) * weight_section_1
+            ELSE 0
+          END,
+          0
+        ) +
+        COALESCE(
+          CASE
+            WHEN query_section_2 IS NOT NULL AND documents.embedding_section_2 IS NOT NULL
+            THEN (1 - (documents.embedding_section_2 <=> query_section_2)) * weight_section_2
+            ELSE 0
+          END,
+          0
+        ) +
+        COALESCE(
+          CASE
+            WHEN query_section_3 IS NOT NULL AND documents.embedding_section_3 IS NOT NULL
+            THEN (1 - (documents.embedding_section_3 <=> query_section_3)) * weight_section_3
+            ELSE 0
+          END,
+          0
+        )
+      ) AS similarity,
+      -- Individual similarities for debugging/analysis
+      (1 - (documents.embedding <=> query_embedding)) AS similarity_main,
+      CASE
+        WHEN query_section_1 IS NOT NULL AND documents.embedding_section_1 IS NOT NULL
+        THEN (1 - (documents.embedding_section_1 <=> query_section_1))
+        ELSE NULL
+      END AS similarity_section_1,
+      CASE
+        WHEN query_section_2 IS NOT NULL AND documents.embedding_section_2 IS NOT NULL
+        THEN (1 - (documents.embedding_section_2 <=> query_section_2))
+        ELSE NULL
+      END AS similarity_section_2,
+      CASE
+        WHEN query_section_3 IS NOT NULL AND documents.embedding_section_3 IS NOT NULL
+        THEN (1 - (documents.embedding_section_3 <=> query_section_3))
+        ELSE NULL
+      END AS similarity_section_3
+    FROM public.documents
+    WHERE
+      -- Metadata filter
+      (
+        filter_metadata IS NULL
+        OR documents.metadata @> filter_metadata
       )
-    ) AS similarity,
-    -- Individual similarities for debugging/analysis
-    (1 - (documents.embedding <=> query_embedding)) AS similarity_main,
-    CASE
-      WHEN query_section_1 IS NOT NULL AND documents.embedding_section_1 IS NOT NULL
-      THEN (1 - (documents.embedding_section_1 <=> query_section_1))
-      ELSE NULL
-    END AS similarity_section_1,
-    CASE
-      WHEN query_section_2 IS NOT NULL AND documents.embedding_section_2 IS NOT NULL
-      THEN (1 - (documents.embedding_section_2 <=> query_section_2))
-      ELSE NULL
-    END AS similarity_section_2,
-    CASE
-      WHEN query_section_3 IS NOT NULL AND documents.embedding_section_3 IS NOT NULL
-      THEN (1 - (documents.embedding_section_3 <=> query_section_3))
-      ELSE NULL
-    END AS similarity_section_3
-  FROM public.documents
-  WHERE
-    -- Metadata filter
-    (
-      filter_metadata IS NULL
-      OR documents.metadata @> filter_metadata
-    )
-  -- Calculate weighted similarity in subquery for filtering
-  HAVING
-    (
-      COALESCE(1 - (documents.embedding <=> query_embedding), 0) * weight_main +
-      COALESCE(
-        CASE
-          WHEN query_section_1 IS NOT NULL AND documents.embedding_section_1 IS NOT NULL
-          THEN (1 - (documents.embedding_section_1 <=> query_section_1)) * weight_section_1
-          ELSE 0
-        END,
-        0
-      ) +
-      COALESCE(
-        CASE
-          WHEN query_section_2 IS NOT NULL AND documents.embedding_section_2 IS NOT NULL
-          THEN (1 - (documents.embedding_section_2 <=> query_section_2)) * weight_section_2
-          ELSE 0
-        END,
-        0
-      ) +
-      COALESCE(
-        CASE
-          WHEN query_section_3 IS NOT NULL AND documents.embedding_section_3 IS NOT NULL
-          THEN (1 - (documents.embedding_section_3 <=> query_section_3)) * weight_section_3
-          ELSE 0
-        END,
-        0
-      )
-    ) >= match_threshold
-  ORDER BY
-    similarity DESC
+  ) ranked
+  WHERE ranked.similarity >= match_threshold
+  ORDER BY ranked.similarity DESC
   LIMIT match_count;
 END;
 $$;
