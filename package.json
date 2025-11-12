@@ -1,7 +1,7 @@
 {
   "name": "supabase-vector-search",
   "version": "1.0.0",
-  "description": "Production-ready vector similarity search for Supabase with PostgreSQL and pgvector. Supports multi-vector weighted search for advanced semantic matching.",
+  "description": "Experimental vector similarity search for Supabase with PostgreSQL and pgvector. Supports multi-vector weighted search for advanced semantic matching.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
