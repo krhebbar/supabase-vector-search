@@ -16,11 +16,11 @@ This document provides a comprehensive overview of the Supabase Vector Search En
 
 ## System Overview
 
-The Supabase Vector Search Engine is a production-ready semantic search system built on PostgreSQL and pgvector. It was extracted from a real-world candidate search system and generalized for broader use cases.
+The Supabase Vector Search Engine is an experimental semantic search system built on PostgreSQL and pgvector. It was extracted from a real-world candidate search system and generalized for broader use cases.
 
 ### Key Design Principles
 
-1. **Production-First** - Based on battle-tested code from production recruiting system
+1. **Real-World Tested** - Based on battle-tested code from a recruiting system
 2. **Flexibility** - Pluggable embedding providers and configurable search weights
 3. **Type Safety** - Comprehensive TypeScript types for better developer experience
 4. **Performance** - HNSW indexes and batch operations for scale
@@ -28,72 +28,59 @@ The Supabase Vector Search Engine is a production-ready semantic search system b
 
 ### System Diagram
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Application Layer                      │
-│  ┌──────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ Document Search  │  │ Resume Search   │  │ Custom App  │ │
-│  └────────┬─────────┘  └────────┬────────┘  └──────┬──────┘ │
-└───────────┼────────────────────┼──────────────────┼─────────┘
-            │                    │                  │
-            └────────────────────┼──────────────────┘
-                                │
-┌───────────────────────────────┼──────────────────────────────┐
-│                  TypeScript Client Layer                      │
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │            VectorSearchClient                          │  │
-│  │  - insertDocument()                                    │  │
-│  │  - search()                                            │  │
-│  │  - searchWeighted()                                    │  │
-│  │  - CRUD operations                                     │  │
-│  └───────────────┬────────────────────────┬───────────────┘  │
-│                  │                        │                  │
-│   ┌──────────────▼────────┐   ┌──────────▼──────────┐       │
-│   │ Embedding Providers   │   │  Type Definitions   │       │
-│   │  - OpenAIProvider     │   │  - Document         │       │
-│   │  - CohereProvider     │   │  - SearchOptions    │       │
-│   │  - Custom Provider    │   │  - SearchResult     │       │
-│   └──────────────┬────────┘   └─────────────────────┘       │
-└──────────────────┼──────────────────────────────────────────┘
-                   │
-                   │ Embeddings
-                   │
-┌──────────────────▼──────────────────────────────────────────┐
-│                    Supabase / PostgreSQL                     │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                  documents Table                     │    │
-│  │  - id (UUID)                                        │    │
-│  │  - content (TEXT)                                   │    │
-│  │  - metadata (JSONB)                                 │    │
-│  │  - embedding (vector(1536))                         │    │
-│  │  - embedding_section_1 (vector(1536))               │    │
-│  │  - embedding_section_2 (vector(1536))               │    │
-│  │  - embedding_section_3 (vector(1536))               │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                HNSW Vector Indexes                   │    │
-│  │  - documents_embedding_idx                          │    │
-│  │  - documents_embedding_section_1_idx                │    │
-│  │  - documents_embedding_section_2_idx                │    │
-│  │  - documents_embedding_section_3_idx                │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              Search Functions (SQL)                  │    │
-│  │  - match_documents(...)                             │    │
-│  │  - match_documents_weighted(...)                    │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │               pgvector Extension                     │    │
-│  │  - vector data type                                 │    │
-│  │  - <=> (cosine distance operator)                   │    │
-│  │  - HNSW index algorithm                             │    │
-│  └─────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Application["Application Layer"]
+        DocSearch["Document Search"]
+        ResumeSearch["Resume Search"]
+        CustomApp["Custom App"]
+    end
+
+    subgraph ClientLayer["TypeScript Client Layer"]
+        VectorSearchClient["VectorSearchClient<br/>- insertDocument()<br/>- search()<br/>- searchWeighted()<br/>- CRUD operations"]
+
+        subgraph Providers["Embedding Providers"]
+            OpenAI["OpenAI Provider"]
+            Cohere["Cohere Provider"]
+            Custom["Custom Provider"]
+        end
+
+        subgraph Types["Type Definitions"]
+            Document["Document"]
+            SearchOptions["SearchOptions"]
+            SearchResult["SearchResult"]
+        end
+
+        VectorSearchClient --> Providers
+        VectorSearchClient --> Types
+    end
+
+    subgraph Database["Supabase / PostgreSQL"]
+        subgraph Tables["Documents Table"]
+            TableSchema["id (UUID)<br/>content (TEXT)<br/>metadata (JSONB)<br/>embedding (vector 1536)<br/>embedding_section_1 (vector 1536)<br/>embedding_section_2 (vector 1536)<br/>embedding_section_3 (vector 1536)"]
+        end
+
+        subgraph Indexes["HNSW Vector Indexes"]
+            Idx1["documents_embedding_idx"]
+            Idx2["documents_embedding_section_1_idx"]
+            Idx3["documents_embedding_section_2_idx"]
+            Idx4["documents_embedding_section_3_idx"]
+        end
+
+        subgraph Functions["Search Functions"]
+            Match["match_documents()"]
+            MatchWeighted["match_documents_weighted()"]
+        end
+
+        subgraph Extension["pgvector Extension"]
+            VectorType["vector data type"]
+            CosineOp["cosine distance operator"]
+            HNSW["HNSW index algorithm"]
+        end
+    end
+
+    Application --> VectorSearchClient
+    Providers -->|Embeddings| Database
 ```
 
 ## Component Architecture
@@ -176,7 +163,7 @@ CREATE TABLE public.documents (
 
 1. **UUID Primary Key** - Better for distributed systems and avoids sequential ID leakage
 2. **JSONB Metadata** - Flexible schema for custom fields without migrations
-3. **Multiple Vector Columns** - Enables multi-vector weighted search (production requirement)
+3. **Multiple Vector Columns** - Enables multi-vector weighted search (key feature)
 4. **Nullable Embeddings** - Allow documents without embeddings (to be generated later)
 5. **Timestamps** - Audit trail and sorting capability
 
@@ -449,15 +436,15 @@ CREATE POLICY "Users see own documents"
 - Consider PII in metadata fields
 - Use RLS to isolate tenant data
 
-## Production Learnings
+## Real-World Learnings
 
-This system was extracted from a production recruiting platform. Key learnings:
+This system was extracted from a real-world recruiting platform. Key learnings:
 
 ### 1. Weighted Search is Critical
 
 Single-vector search was insufficient for resume matching. Experience should count more than education. Multi-vector weighted search improved match quality significantly.
 
-**Production weights for resume search:**
+**Recommended weights for resume search:**
 - 50% Experience (most important)
 - 20% Skills
 - 20% Full resume context

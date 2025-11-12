@@ -11,6 +11,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SearchResult, SearchOptions, WeightedSearchOptions, SearchError, ValidationError } from '../types';
 import { validateEmbeddingDimensions } from '../embeddings';
 import { Logger, defaultLogger } from '../logger';
+import { withRetry } from '../utils/retry';
 
 export class SearchManager {
   private client: SupabaseClient;
@@ -33,23 +34,37 @@ export class SearchManager {
         validateEmbeddingDimensions(options.queryEmbedding, expectedDimensions);
       }
 
-      const { data, error } = await this.client.rpc('match_documents', {
-        query_embedding: options.queryEmbedding,
-        match_threshold: options.matchThreshold || 0.5,
-        match_count: options.matchCount || 10,
-        filter_metadata: options.filterMetadata || null,
-      });
+      const result = await withRetry(
+        async () => {
+          const { data, error } = await this.client.rpc('match_documents', {
+            query_embedding: options.queryEmbedding,
+            match_threshold: options.matchThreshold || 0.5,
+            match_count: options.matchCount || 10,
+            filter_metadata: options.filterMetadata || null,
+          });
 
-      if (error) {
-        throw new SearchError(`Search failed: ${error.message}`, error.code);
-      }
+          if (error) {
+            throw new SearchError(`Search failed: \${error.message}`, error.code);
+          }
 
-      return (data || []) as SearchResult[];
+          return (data || []) as SearchResult[];
+        },
+        {
+          maxRetries: 3,
+          onRetry: (attempt, error) => {
+            this.logger.warn(
+              `Retrying search (attempt \${attempt}/3): \${error.message}`
+            );
+          },
+        }
+      );
+
+      return result;
     } catch (error) {
       if (error instanceof ValidationError || error instanceof SearchError) {
         throw error;
       }
-      throw new SearchError(`Unexpected error during search: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new SearchError(`Unexpected error during search: \${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -68,42 +83,73 @@ export class SearchManager {
         if (options.querySection3) validateEmbeddingDimensions(options.querySection3, expectedDimensions);
       }
 
-      const totalWeight =
-        (options.weightMain || 0.25) +
-        (options.weightSection1 || 0.25) +
-        (options.weightSection2 || 0.25) +
-        (options.weightSection3 || 0.25);
+      // Normalize weights to sum to 1.0 for consistent scoring
+      const providedWeightMain = options.weightMain ?? 0.25;
+      const providedWeightSection1 = options.weightSection1 ?? 0.25;
+      const providedWeightSection2 = options.weightSection2 ?? 0.25;
+      const providedWeightSection3 = options.weightSection3 ?? 0.25;
+
+      const totalWeight = providedWeightMain + providedWeightSection1 + providedWeightSection2 + providedWeightSection3;
+
+      if (totalWeight === 0) {
+        throw new ValidationError('Weights cannot all be zero', 'weights');
+      }
+
+      // Auto-normalize weights if they don't sum to 1.0
+      let normalizedWeightMain = providedWeightMain;
+      let normalizedWeightSection1 = providedWeightSection1;
+      let normalizedWeightSection2 = providedWeightSection2;
+      let normalizedWeightSection3 = providedWeightSection3;
 
       if (Math.abs(totalWeight - 1.0) > 0.01) {
-        this.logger.warn(
-          `Weights sum to ${totalWeight.toFixed(2)} instead of 1.0. This may affect score interpretation.`
+        normalizedWeightMain = providedWeightMain / totalWeight;
+        normalizedWeightSection1 = providedWeightSection1 / totalWeight;
+        normalizedWeightSection2 = providedWeightSection2 / totalWeight;
+        normalizedWeightSection3 = providedWeightSection3 / totalWeight;
+
+        this.logger.info(
+          `Weights normalized: [\${providedWeightMain.toFixed(2)}, \${providedWeightSection1.toFixed(2)}, \${providedWeightSection2.toFixed(2)}, \${providedWeightSection3.toFixed(2)}] -> [\${normalizedWeightMain.toFixed(2)}, \${normalizedWeightSection1.toFixed(2)}, \${normalizedWeightSection2.toFixed(2)}, \${normalizedWeightSection3.toFixed(2)}]`
         );
       }
 
-      const { data, error } = await this.client.rpc('match_documents_weighted', {
-        query_embedding: options.queryEmbedding,
-        query_section_1: options.querySection1 || null,
-        query_section_2: options.querySection2 || null,
-        query_section_3: options.querySection3 || null,
-        weight_main: options.weightMain || 0.25,
-        weight_section_1: options.weightSection1 || 0.25,
-        weight_section_2: options.weightSection2 || 0.25,
-        weight_section_3: options.weightSection3 || 0.25,
-        match_threshold: options.matchThreshold || 0.5,
-        match_count: options.matchCount || 10,
-        filter_metadata: options.filterMetadata || null,
-      });
+      const result = await withRetry(
+        async () => {
+          const { data, error } = await this.client.rpc('match_documents_weighted', {
+            query_embedding: options.queryEmbedding,
+            query_section_1: options.querySection1 || null,
+            query_section_2: options.querySection2 || null,
+            query_section_3: options.querySection3 || null,
+            weight_main: normalizedWeightMain,
+            weight_section_1: normalizedWeightSection1,
+            weight_section_2: normalizedWeightSection2,
+            weight_section_3: normalizedWeightSection3,
+            match_threshold: options.matchThreshold || 0.5,
+            match_count: options.matchCount || 10,
+            filter_metadata: options.filterMetadata || null,
+          });
 
-      if (error) {
-        throw new SearchError(`Weighted search failed: ${error.message}`, error.code);
-      }
+          if (error) {
+            throw new SearchError(`Weighted search failed: \${error.message}`, error.code);
+          }
 
-      return (data || []) as SearchResult[];
+          return (data || []) as SearchResult[];
+        },
+        {
+          maxRetries: 3,
+          onRetry: (attempt, error) => {
+            this.logger.warn(
+              `Retrying weighted search (attempt \${attempt}/3): \${error.message}`
+            );
+          },
+        }
+      );
+
+      return result;
     } catch (error) {
       if (error instanceof ValidationError || error instanceof SearchError) {
         throw error;
       }
-      throw new SearchError(`Unexpected error during weighted search: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new SearchError(`Unexpected error during weighted search: \${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }

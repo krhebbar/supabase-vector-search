@@ -1,8 +1,8 @@
 # Supabase Vector Search Engine
 
-Production-ready vector similarity search for Supabase with PostgreSQL and pgvector. Supports advanced multi-vector weighted search for semantic matching at scale.
+Experimental vector similarity search for Supabase with PostgreSQL and pgvector. Supports advanced multi-vector weighted search for semantic matching at scale.
 
-**Extracted from production recruiting system** handling real candidate searches with configurable weighted scoring across resume sections.
+**Extracted from real-world recruiting system** handling candidate searches with configurable weighted scoring across resume sections.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -15,7 +15,7 @@ Production-ready vector similarity search for Supabase with PostgreSQL and pgvec
 - **Type-Safe API** - Full TypeScript support with comprehensive types
 - **Batch Operations** - Efficient bulk insertion and embedding generation
 - **Metadata Filtering** - Combine vector search with JSONB metadata queries
-- **Production-Tested** - Based on real-world candidate search system
+- **Real-World Tested** - Based on real-world candidate search system
 - **HNSW Indexes** - Fast approximate nearest neighbor search
 - **Flexible Architecture** - Easy to extend with custom providers
 
@@ -465,7 +465,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - Built on [pgvector](https://github.com/pgvector/pgvector) by Andrew Kane
 - Powered by [Supabase](https://supabase.com)
-- Based on production recruiting system handling real candidate searches
+- Based on real-world recruiting system handling candidate searches
 
 ## Related Projects
 
